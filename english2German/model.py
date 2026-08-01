@@ -31,7 +31,7 @@ class Transformer(nn.Module):
         src_pad_id,
         tgt_pad_id,
         d_model,
-        num_attention_heads,
+        num_atn_heads,
         num_encoder_layers,
         num_decoder_layers,
         d_ff,
@@ -70,10 +70,10 @@ class Transformer(nn.Module):
 
         # Encoder & Decoder
         self.encoder = TransformerEncoder(
-            num_encoder_layers, d_model, num_attention_heads, d_ff, dropout, activation
+            num_encoder_layers, d_model, num_atn_heads, d_ff, dropout, activation
         )
         self.decoder = TransformerDecoder(
-            num_decoder_layers, d_model, num_attention_heads, d_ff, dropout, activation
+            num_decoder_layers, d_model, num_atn_heads, d_ff, dropout, activation
         )
 
         # Output Projection aka Final Output
