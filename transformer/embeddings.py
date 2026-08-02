@@ -95,7 +95,6 @@ class TokenEmbedding(nn.Module):
         d_model,
         padding_idx,
         param_init='xavier'
-
     ) -> None:
         """
         Token Embedding Layer
@@ -107,14 +106,14 @@ class TokenEmbedding(nn.Module):
             param_init:     
         """
         super(TokenEmbedding, self).__init__()
-        self.nn_Embedding = nn.Embedding(vocab_size, d_model, padding_idx)
+        self.nn_embedding = nn.Embedding(vocab_size, d_model, padding_idx)
         self.d_model = d_model
         self._init_params(param_init)
 
 
     def _init_params(self, param_init: str) -> None:
         if (param_init == 'xavier'):
-            nn.init.xavier_uniform_(self.nn_Embedding.weight)
+            nn.init.xavier_uniform_(self.nn_embedding.weight)
 
 
     def forward(self, X: torch.Tensor) -> None:

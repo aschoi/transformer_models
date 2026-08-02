@@ -87,7 +87,11 @@ class TransformerTrainer:
             param_group['lr'] = lr_scaled
 
 
-    def evaluate_epoch(self) -> float:
+    def evaluate_epoch(
+        self,
+        src_pad_id: int,
+        tgt_pad_id: int
+    ) -> float:
         """
         Evaluate the model over the validation set.
 
@@ -109,8 +113,8 @@ class TransformerTrainer:
                 english_text_batch = batch['en']
                 german_text_batch = batch['de']
 
-                src_padding_mask = self.model.create_padding_mask(bos_src_eos_batch)
-                tgt_padding_mask = self.model.create_padding_mask(bos_tgt_batch)
+                src_padding_mask = self.model.create_padding_mask(bos_src_eos_batch, src_pad_id)
+                tgt_padding_mask = self.model.create_padding_mask(bos_tgt_batch, tgt_pad_id)
                 tgt_causal_mask = self.model.create_causal_mask(bos_tgt_batch.size(1))
                 tgt_mask = tgt_causal_mask & tgt_padding_mask
 
@@ -128,7 +132,9 @@ class TransformerTrainer:
 
     def train_epoch(
         self, 
-        epoch: int
+        epoch: int,
+        src_pad_id: int,
+        tgt_pad_id: int
     ) -> tuple[float, float]:
         """
         Train for one Epoch
@@ -143,7 +149,7 @@ class TransformerTrainer:
         num_batches = 0
 
         for iBatch, batch in enumerate(self.train_loader):
-            self.step_num += 1
+            self.step_count+= 1
             if self.warmup_steps > 0:
                 self.update_lr()
 
@@ -156,8 +162,8 @@ class TransformerTrainer:
             german_text_batch = batch['de']
 
             # Create masks (part of training / data prep technique. basically a techinique that helps to optimize result from training)
-            src_padding_mask = self.model.create_padding_mask(bos_src_eos_batch)
-            tgt_padding_mask = self.model.create_padding_mask(bos_tgt_batch)
+            src_padding_mask = self.model.create_padding_mask(bos_src_eos_batch, src_pad_id)
+            tgt_padding_mask = self.model.create_padding_mask(bos_tgt_batch, tgt_pad_id)
             tgt_causal_mask = self.model.create_causal_mask(bos_tgt_batch.size(1))
             # Combine masks: both must be True for attention to be allowed
             # Broadcasting can handle shape diff
@@ -180,14 +186,14 @@ class TransformerTrainer:
             if num_batches % 100 == 0:
                 avg_loss = total_loss / num_batches
                 lr = self.optimizer.param_groups[0]['lr']
-                print(f"Step {self.step_num}, Loss: {avg_loss:.4f}, lr: {lr:.6f}")
+                print(f"Step {self.step_count}, Loss: {avg_loss:.4f}, lr: {lr:.6f}")
 
 
 
         training_loss = total_loss / num_batches
 
         # Run validation only after the training portion is complete.
-        validation_loss = self.evaluate_epoch()
+        validation_loss = self.evaluate_epoch(src_pad_id, tgt_pad_id)
         elapsed = time.perf_counter() - start
         seconds_per_batch = elapsed / num_batches
 
@@ -205,7 +211,7 @@ class TransformerTrainer:
         checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
         checkpoint = {
             "epoch": epoch,
-            "step_num": self.step_num,
+            "step_count": self.step_count,
             "warmup_steps": self.warmup_steps,
             "model_state_dict": self.model.state_dict(),
             "optimizer_state_dict": self.optimizer.state_dict(),

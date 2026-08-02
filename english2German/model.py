@@ -31,7 +31,7 @@ class Transformer(nn.Module):
         src_pad_id,
         tgt_pad_id,
         d_model,
-        num_atn_heads,
+        num_attn_heads,
         num_encoder_layers,
         num_decoder_layers,
         d_ff,
@@ -70,10 +70,10 @@ class Transformer(nn.Module):
 
         # Encoder & Decoder
         self.encoder = TransformerEncoder(
-            num_encoder_layers, d_model, num_atn_heads, d_ff, dropout, activation
+            num_encoder_layers, d_model, num_attn_heads, d_ff, dropout, activation
         )
         self.decoder = TransformerDecoder(
-            num_decoder_layers, d_model, num_atn_heads, d_ff, dropout, activation
+            num_decoder_layers, d_model, num_attn_heads, d_ff, dropout, activation
         )
 
         # Output Projection aka Final Output
@@ -138,34 +138,44 @@ class Transformer(nn.Module):
 
     def create_causal_mask(
         self,
-        tgt_length: int, 
+        tnsr_tgt: torch.Tensor, 
     ) -> torch.Tensor:
         """
         Prevent each decoder position from attending to future positions.
 
 
         Args:
-            tgt_length:     Number of positions in the decoder input
+            tnsr_tgt:     
         
         Return:
             Boolean mask    Shape: (1, 1, tgt_length, tgt_length)
         """
+        tgt_seq_len = tnsr_tgt.size(1)
 
-        tnsr_query_positions = torch.arange(tgt_length).unsqueeze(1)
-        tnsr_key_positions = torch.arange(tgt_length).unsqueeze(0)
+        tnsr_causal_mask = torch.tril(
+            torch.ones(
+                tgt_seq_len,
+                tgt_seq_len,
+                dtype=torch.bool,
+                device=tnsr_tgt.device
+            )
+        )
 
-        # A Query may read a key when: key_position <= query_position
-        # At the curr Query position, the Query may attend to itself and all eariler positions
-        # BUT NOT to later positions.
-        #       True  == Attention is allowed
-        #       False == Attention is blocked
-        # Shape: (tgt_length, tgt_length)
-        tnsr_attention_is_allowed = tnsr_key_positions <= tnsr_query_positions
+        return tnsr_causal_mask.unsqueeze(0).unsqueeze(0)
 
-        # Shape: (1, 1, tgt_length, tgt_length)
-        tnsr_causal_mask = tnsr_attention_is_allowed.unsqueeze(0).unsqueeze(0)
+        # Parsed out explanation of whats happening with create_cause_mask
+        # tnsr_query_positions = torch.arange(tgt_length).unsqueeze(1)
+        # tnsr_key_positions = torch.arange(tgt_length).unsqueeze(0)
+        # # A Query may read a key when: key_position <= query_position
+        # # At the curr Query position, the Query may attend to itself and all eariler positions
+        # # BUT NOT to later positions.
+        # #       True  == Attention is allowed
+        # #       False == Attention is blocked
+        # # Shape: (tgt_length, tgt_length)
+        # tnsr_attention_is_allowed = tnsr_key_positions <= tnsr_query_positions
 
-        return tnsr_causal_mask
+        # # Shape: (1, 1, tgt_length, tgt_length)
+        # tnsr_causal_mask = tnsr_attention_is_allowed.unsqueeze(0).unsqueeze(0)
 
 
     def forward(

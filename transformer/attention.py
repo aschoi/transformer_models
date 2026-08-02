@@ -110,7 +110,7 @@ class MultiHeadAttention(nn.Module):
         tnsr_query: torch.Tensor,
         tnsr_key: torch.Tensor,
         tnsr_value: torch.Tensor,
-        tnsr_mask: torch.Tensor=None
+        tnsr_mask: torch.Tensor | None=None
     ) -> None:
         """
         Forward Propogation for Multi-head Attention.

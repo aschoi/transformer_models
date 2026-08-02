@@ -114,7 +114,9 @@ def main():
 
 
     # -------- main -------
-    print("Testing Transformer Inference.")
+    print("Running main.")
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     dataset = load_dataset("bentrevett/multi30k")
 
@@ -174,7 +176,7 @@ def main():
         activation='gelu',
         max_seq_len=5000,
         param_init='xavier_normal'
-    )
+    ).to(device)
 
     # Train Model
     trainer = TransformerTrainer(model, train_loader, validation_loader, TGT_PAD_ID, step_count=0, warmup_steps=3000)
@@ -184,7 +186,7 @@ def main():
     epochs = 10
     print(f"\n-----Training for {epochs} epochs-----")
     for epoch in range(1, epochs+1):
-        training_loss, validation_loss = trainer.train_epoch(epoch)
+        training_loss, validation_loss = trainer.train_epoch(epoch, SRC_PAD_ID, TGT_PAD_ID, device)
         print(f"Epoch {epoch}, Training Loss: {training_loss:.4f}, Validation Loss: {validation_loss}\n")
 
 
