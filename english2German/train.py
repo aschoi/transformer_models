@@ -97,7 +97,6 @@ class TransformerTrainer:
         tgt_pad_id: int,
         tgt_bos_id: int,
         tgt_eos_id: int,
-        device: torch.device,
         max_output_length: int = 100
     ) -> torch.Tensor:
         """
@@ -115,6 +114,7 @@ class TransformerTrainer:
         Returns:
             Generated target IDs shaped: [batch_size, generated_length]
         """
+        device = source.device
 
         if max_output_length < 2:
             raise ValueError("max_output_length must be at least 2 to allow BOS and one generated token.")
@@ -321,10 +321,10 @@ class TransformerTrainer:
     
             for batch in self.validation_loader:
                 # Parse Batch Data
-                bos_src_eos_batch = batch['bos_src_eos']
-                bos_tgt_batch = batch['bos_tgt']
-                tgt_eos_batch = batch['tgt_eos']
-                bos_tgt_eos_batch = batch['bos_tgt_eos']
+                bos_src_eos_batch = batch['bos_src_eos'].to(device, non_blocking=True)
+                bos_tgt_batch = batch['bos_tgt'].to(device, non_blocking=True)
+                tgt_eos_batch = batch['tgt_eos'].to(device, non_blocking=True)
+                bos_tgt_eos_batch = batch['bos_tgt_eos'].to(device, non_blocking=True)
                 english_text_batch = batch['en']
                 german_text_batch = batch['de']
     
