@@ -182,21 +182,21 @@ def main():
 
 
     # ======== MODEL AND TRAINING PARAMETERS ======== #
-    d_model = 512
-    num_attn_heads = 8
-    num_encoder_layers = 6
-    num_decoder_layers = 6
-    d_ff = 2048
+    d_model = 256
+    num_attn_heads = 4
+    num_encoder_layers = 3
+    num_decoder_layers = 3
+    d_ff = 1024
     dropout = 0.1
     activate = 'gelu'
     max_seq_len = 5000
     param_init = 'xavier_normal'
 
-    batch_size = 128
+    batch_size = 64
     shuffle = True
     cur_step_count = 0
-    warmup_steps = 1000
-    epochs = 30
+    warmup_steps = 3000
+    epochs = 50
 
     train_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
     validation_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
@@ -258,14 +258,20 @@ def main():
     }
 
     start = time.perf_counter()
+    valid_patience_count = 0
+    bleu_patience_count = 0
 
     print(f"\n-----Training for {epochs} epochs-----")
     for epoch in range(1, epochs+1):
-        training_loss, validation_loss = trainer.train_epoch(epoch, SRC_PAD_ID, TGT_PAD_ID, TGT_BOS_ID, TGT_EOS_ID, source_tokenizer, target_tokenizer, device, all_model_parameters)
+        training_loss, validation_loss, valid_patience_count, bleu_patience_count = trainer.train_epoch(epoch, SRC_PAD_ID, TGT_PAD_ID, TGT_BOS_ID, TGT_EOS_ID, source_tokenizer, target_tokenizer, device, all_model_parameters, valid_patience_count, bleu_patience_count)
 
         print(f"Epoch {epoch}, Training Loss: {training_loss:.4f}, Validation Loss: {validation_loss}\n")
 
         all_model_parameters['epochs'] = epoch
+
+        if valid_patience_count > 4 and bleu_patience_count > 4:
+            print(f"early stop at epoch: {epoch}")
+            break
 
 
     with open("english2German/all_parameters.json", "w") as file:

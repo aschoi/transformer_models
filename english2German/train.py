@@ -243,7 +243,9 @@ class TransformerTrainer:
         src_tokenizer,
         tgt_tokenizer,
         device: torch.device,
-        all_model_paramters: dict
+        all_model_paramters: dict,
+        valid_patience_count: int,
+        bleu_patience_count: int
     ) -> tuple[float, float]:
         """
         Train for one Epoch
@@ -345,8 +347,7 @@ class TransformerTrainer:
                     tgt_pad_id=tgt_pad_id,
                     tgt_bos_id=tgt_eos_id,
                     tgt_eos_id=tgt_eos_id,
-                    device=device,
-                    max_output_length=100,
+                    max_output_length=100
                 )
     
                 i = 0
@@ -392,8 +393,9 @@ class TransformerTrainer:
 
         
         # torch.save(checkpoint, checkpoint_path)
+        
+        # Save a separate checkpoint when validation improves.
 
-         # Save a separate checkpoint when validation improves.
         if validation_loss < self.best_validation_loss:
 
             checkpoint_path = Path("english2German/checkpoints/english2German_transformer.pt")
@@ -413,6 +415,10 @@ class TransformerTrainer:
             self.best_validation_loss = validation_loss
             torch.save(checkpoint, checkpoint_path)
             print(f"Saved new best checkpoint with validation loss: {validation_loss:.4f}")
+            valid_patience_count = 0
+
+        else:
+            valid_patience_count += 1
 
         if bleu_result2.score < self.best_bleu_score:
 
@@ -434,6 +440,9 @@ class TransformerTrainer:
             self.best_bleu_score = bleu_result2.score
             torch.save(checkpoint, checkpoint_path)
             print(f"Saved new best checkpoint with bleu score: {bleu_result2.score}")
+            bleu_patience_count = 0
+        else:
+            bleu_patience_count += 1
 
 
-        return training_loss, validation_loss
+        return training_loss, validation_loss, valid_patience_count, bleu_patience_count
