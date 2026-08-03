@@ -1,6 +1,7 @@
 # Python cache files
 __pycache__/
 *.py[cod]
+*.pyc
 *$py.class
 
 # Virtual Environments
@@ -21,7 +22,10 @@ htmlcov/
 
 # Model Checkpoints
 checkpoints/
+logs/
 
+# Local Specific
+requirements_full.txt
 
 # Type checker and linter caches
 .mypy_cache/

@@ -12,7 +12,7 @@ from tokenizers.trainers import BpeTrainer
 
 from datasets import load_dataset
 import sacrebleu
-from dataclasses import dataclass
+# from dataclasses import dataclass
 
 import time
 import re

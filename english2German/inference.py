@@ -11,7 +11,7 @@ from tokenizers.pre_tokenizers import Whitespace
 from tokenizers.trainers import BpeTrainer
 
 from datasets import load_dataset
-from dataclasses import dataclass
+# from dataclasses import dataclass
 
 import time
 import re
