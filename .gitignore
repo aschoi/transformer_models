@@ -25,7 +25,9 @@ checkpoints/
 logs/
 
 # Local Specific
-requirements_full.txt
+requirements_local.txt
+english2German/runpod_artifacts/
+aws/
 
 # Type checker and linter caches
 .mypy_cache/

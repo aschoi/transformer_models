@@ -182,20 +182,20 @@ def main():
 
 
     # ======== MODEL AND TRAINING PARAMETERS ======== #
-    d_model = 256
+    d_model = 128
     num_attn_heads = 4
-    num_encoder_layers = 3
-    num_decoder_layers = 3
-    d_ff = 1024
+    num_encoder_layers = 2
+    num_decoder_layers = 2
+    d_ff = 512
     dropout = 0.2
     activate = 'gelu'
     max_seq_len = 5000
-    param_init = 'savier_normal'
+    param_init = 'xavier_normal'
 
-    batch_size = 64
+    batch_size = 32
     shuffle = True
     cur_step_count = 0
-    warmup_steps = 3000
+    warmup_steps = 800
     epochs = 2
 
     train_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
@@ -261,7 +261,7 @@ def main():
 
     print(f"\n-----Training for {epochs} epochs-----")
     for epoch in range(1, epochs+1):
-        training_loss, validation_loss = trainer.train_epoch(epoch, SRC_PAD_ID, TGT_PAD_ID, device, all_model_parameters)
+        training_loss, validation_loss = trainer.train_epoch(epoch, SRC_PAD_ID, TGT_PAD_ID, TGT_BOS_ID, TGT_EOS_ID, source_tokenizer, target_tokenizer, device, all_model_parameters)
 
         print(f"Epoch {epoch}, Training Loss: {training_loss:.4f}, Validation Loss: {validation_loss}\n")
 

@@ -5,6 +5,9 @@ tokenizers==0.22.2
 tqdm==4.69.1
 de_core_news_sm @ https://github.com/explosion/spacy-models/releases/download/de_core_news_sm-3.8.0/de_core_news_sm-3.8.0-py3-none-any.whl#sha256=fec69fec52b1780f2d269d5af7582a5e28028738bd3190532459aeb473bfa3e7
 en_core_web_sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl#sha256=1932429db727d4bff3deed6b34cfc05df17794f4a52eeb26cf8928f7c1a0fb85
-torch==2.13.0
 
+# RunPod <-> AWS integration
+boto3==1.40
 
+# RunPod template environment already has pytorch. Should not add as requirement for RunPod
+# torch==2.13.0

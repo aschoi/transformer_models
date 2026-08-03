@@ -19,6 +19,7 @@ import re
 from pathlib import Path
 from collections.abc import Iterable
 from .model import Transformer
+import json
 
 
 
@@ -196,6 +197,9 @@ def main():
 
     source_tokenizer = Tokenizer.from_file("english2German/checkpoints/tokenizers/english_bpe.json")
     target_tokenizer = Tokenizer.from_file("english2German/checkpoints/tokenizers/german_bpe.json")
+    # source_tokenizer = Tokenizer.from_file("english2German/runpod_artifacts/checkpoints/tokenizers/english_bpe.json")
+    # target_tokenizer = Tokenizer.from_file("english2German/runpod_artifacts/checkpoints/tokenizers/german_bpe.json")
+    
 
     SRC_PAD_ID = source_tokenizer.token_to_id("[PAD]")
     SRC_BOS_ID = source_tokenizer.token_to_id("[BOS]")
@@ -210,27 +214,43 @@ def main():
 
     test_loader = DataLoader(test_dataset, batch_size=64, shuffle=False, collate_fn=collate_fn)
 
+    with open("english2German/all_parameters.json", "r", encoding="utf-8") as file:
+        all_parameters = json.load(file)
+
+    d_model = all_parameters['d_model']
+    num_attn_heads = all_parameters['num_attn_heads']
+    num_encoder_layers = all_parameters['num_encoder_layers']
+    num_decoder_layers = all_parameters['num_decoder_layers']
+    d_ff = all_parameters['d_ff']
+    dropout = all_parameters['dropout']
+    activation = all_parameters['activation']
+    max_seq_len = all_parameters['max_seq_len']
+    param_init = all_parameters['param_init']
+
+
    # Create Model
     model = Transformer(
         src_vocab_size=source_vocab_size,
         tgt_vocab_size=target_vocab_size,
         src_pad_id=SRC_PAD_ID,
         tgt_pad_id=TGT_PAD_ID,
-        d_model=256,
-        num_attn_heads=4,
-        num_encoder_layers=3,
-        num_decoder_layers=3,
-        d_ff=1024,
-        dropout=0.2,
-        activation='gelu',
-        max_seq_len=5000,
-        param_init='xavier_normal'
+        d_model=d_model,
+        num_attn_heads=num_attn_heads,
+        num_encoder_layers=num_encoder_layers,
+        num_decoder_layers=num_decoder_layers,
+        d_ff=d_ff,
+        dropout=dropout,
+        activation=activation,
+        max_seq_len=max_seq_len,
+        param_init=param_init
     ).to(device)
 
     parameter_name = next(iter(model.state_dict()))
     before = model.state_dict()[parameter_name].clone()
 
     checkpoint_path = Path("english2German/checkpoints/english2German_transformer.pt")
+    # checkpoint_path = Path("english2German/runpod_artifacts/checkpoints/english2German_transformer.pt")
+
     checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=True)
 
     model.load_state_dict(checkpoint["model_state_dict"])
@@ -249,9 +269,7 @@ def main():
 
     criterion = nn.CrossEntropyLoss(ignore_index=TGT_PAD_ID)
 
-    predictions = []
-    references = []
-    gref = []
+    
 
     total_loss = 0.0
     total_loss_tokens = 0
@@ -259,7 +277,10 @@ def main():
     total_correct_tokens = 0
     total_compared_tokens = 0
 
-
+    predictions = []
+    references = []
+    gref = []
+    
     model.eval()
     with torch.inference_mode():
 
