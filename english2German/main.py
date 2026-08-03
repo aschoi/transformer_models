@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
@@ -15,8 +16,103 @@ from tokenizers.trainers import BpeTrainer
 from collections.abc import Iterable
 from pathlib import Path
 import json
+import sacrebleu
+import re
 
 
+def greedy_decode_batch(
+    model: nn.Module,
+    source: torch.Tensor,
+    src_pad_id: int,
+    tgt_pad_id: int,
+    tgt_bos_id: int,
+    tgt_eos_id: int,
+    max_output_length: int = 100
+) -> torch.Tensor:
+    """
+    Translate a batch of source sequences using greedy decoding.
+
+    Args:
+        model:      Encoder-decoder Transformer.
+        source:     Source token IDs shaped: [batch_size, source_length]
+        src_pad_id: Padding-token ID used by the source tokenizer
+        tgt_pad_id: Padding-token ID used by the target tokenizer.
+        tgt_bos_id: Beginning-of-sequence ID used by the target tokenizer.
+        tgt_eos_id: End-of-sequence ID used by the target tokenizer.
+        max_output_length:Maximum generated sequence length, including BOS.
+
+    Returns:
+        Generated target IDs shaped: [batch_size, generated_length]
+    """
+
+    if max_output_length < 2:
+        raise ValueError("max_output_length must be at least 2 to allow BOS and one generated token.")
+
+    model.eval()
+
+    batch_size = source.size(0)
+
+    # Every target sequence begins with the target-language BOS token.
+    generated = torch.full(size=(batch_size, 1), fill_value=tgt_bos_id, dtype=torch.long)
+
+    # Tracks which sequences have already generated EOS.
+    finished = torch.zeros(batch_size, dtype=torch.bool)
+
+    # The source does not change during decoding, so create this once.
+    src_mask = model.create_padding_mask(source, src_pad_id)
+
+    with torch.inference_mode():
+        # BOS already occupies one position.
+
+        # The REPETITIVE re-feeding of the sequential generation of the model's predictions
+        # The generative output gets built, one token at a time. 
+        for _ in range(max_output_length - 1):
+
+            # sending generated in as causal_mask parameter merely to use its size. 
+            # sending genereated so that when mask is created, it creates a tensor specific to the
+            # device being used, instead of having to pass in that info as an argument explicitly
+            tgt_causal_mask = model.create_causal_mask(generated)
+            tgt_padding_mask = model.create_padding_mask(generated, tgt_pad_id)
+
+            # Both masks use:
+            # True  = attention allowed
+            # False = attention blocked
+            tgt_mask = tgt_causal_mask & tgt_padding_mask
+            logits = model(source, generated, src_mask, tgt_mask)
+
+            # Expected logits shape:
+            # [batch_size, target_length, target_vocab_size]
+            if logits.ndim != 3:
+                raise RuntimeError(f"Expected model output with 3 dimensions [batch, target_length, vocabulary_size], but received shape {tuple(logits.shape)}.")
+
+            # Only use the prediction at the newest target position.
+            next_token_logits = logits[:, -1, :]
+
+            # Greedy decoding chooses the highest-logit token.
+            next_token = next_token_logits.argmax(dim=-1, keepdim=True)
+
+            # Sequences that previously produced EOS receive PAD from
+            # this point onward while the other sequences continue.
+            next_token = torch.where(finished.unsqueeze(1), torch.full_like(next_token, tgt_pad_id), next_token)
+
+            generated = torch.cat([generated, next_token], dim=1)
+
+            # Mark newly completed sequences.
+            finished |= next_token.squeeze(1).eq(tgt_eos_id)
+
+            if finished.all():
+                break
+
+    return generated
+
+def clean_decoded_text(text: str) -> str:
+    # Remove spaces before common punctuation.
+    text = re.sub(r"\s+([.,!?;:])", r"\1", text)
+
+    # Normalize repeated whitespace.
+    text = re.sub(r"\s+", " ", text)
+
+    return text.strip()
 
 def train_bpe_hf_tokenizer(
     texts: Iterable[str], 
@@ -260,12 +356,99 @@ def main():
     start = time.perf_counter()
     valid_patience_count = 0
     bleu_patience_count = 0
+    best_bleu = float('inf')
 
     print(f"\n-----Training for {epochs} epochs-----")
     for epoch in range(1, epochs+1):
-        training_loss, validation_loss, valid_patience_count, bleu_patience_count = trainer.train_epoch(epoch, SRC_PAD_ID, TGT_PAD_ID, TGT_BOS_ID, TGT_EOS_ID, source_tokenizer, target_tokenizer, device, all_model_parameters, valid_patience_count, bleu_patience_count)
+        training_loss, validation_loss, valid_patience_count = trainer.train_epoch(epoch, SRC_PAD_ID, TGT_PAD_ID, TGT_BOS_ID, TGT_EOS_ID, source_tokenizer, target_tokenizer, device, all_model_parameters, valid_patience_count)
 
         print(f"Epoch {epoch}, Training Loss: {training_loss:.4f}, Validation Loss: {validation_loss}\n")
+
+
+        predictions = []
+        references = []
+        gref = []
+        
+        model.eval()
+        with torch.inference_mode():
+    
+            for batch in validation_loader:
+                # Parse Batch Data
+                bos_src_eos_batch = batch['bos_src_eos'].to(device, non_blocking=True)
+                bos_tgt_batch = batch['bos_tgt'].to(device, non_blocking=True)
+                tgt_eos_batch = batch['tgt_eos'].to(device, non_blocking=True)
+                bos_tgt_eos_batch = batch['bos_tgt_eos'].to(device, non_blocking=True)
+                english_text_batch = batch['en']
+                german_text_batch = batch['de']
+    
+                src_padding_mask = model.create_padding_mask(bos_src_eos_batch, SRC_PAD_ID)
+                tgt_padding_mask = model.create_padding_mask(bos_tgt_batch, TGT_PAD_ID)
+                tgt_causal_mask = model.create_causal_mask(bos_tgt_batch)
+    
+                tgt_mask = tgt_causal_mask & tgt_padding_mask
+    
+                # output = model(bos_src_eos_batch, bos_tgt_batch, src_padding_mask, tgt_mask)
+                # loss = criterion(output.reshape(-1, output.size(-1)), tgt_eos_batch.reshape(-1))
+                # total_loss += loss.item()
+                # num_batches += 1
+    
+                generated = greedy_decode_batch(
+                    model=model,
+                    source=bos_src_eos_batch,
+                    src_pad_id=SRC_PAD_ID,
+                    tgt_pad_id=TGT_PAD_ID,
+                    tgt_bos_id=TGT_BOS_ID,
+                    tgt_eos_id=TGT_EOS_ID,
+                    max_output_length=100,
+                )
+    
+                i = 0
+                for predicted_ids, reference_ids in zip(generated.tolist(), bos_tgt_eos_batch.tolist()):
+    
+                    predicted_text = target_tokenizer.decode(predicted_ids, skip_special_tokens=True)
+                    predicted_text = clean_decoded_text(predicted_text)
+    
+                    reference_text = target_tokenizer.decode(reference_ids, skip_special_tokens=True)
+                    reference_text = clean_decoded_text(reference_text)
+    
+                    predictions.append(predicted_text)
+                    references.append(reference_text)
+                    gref.append(german_text_batch[i])
+                    i += 1
+    
+    
+                print("Generated IDs:", generated[-1].tolist())
+                print("Translation:", predictions[-1])
+                print(f"German Text: {gref[-1]}")
+                print()
+
+        bleu_result = sacrebleu.corpus_bleu(predictions, [references])
+        print(f'\nbleu:  {bleu_result.score}')
+    
+        bleu_result2 = sacrebleu.corpus_bleu(predictions, [gref])
+        print(f'\nbleu2:  {bleu_result2.score}')
+
+
+        if bleu_result2.score > best_bleu:
+
+            checkpoint_path = Path("english2German/checkpoints/english2German_transformer_bestBleu.pt")
+            checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+            checkpoint = {
+                "epoch": epoch,
+                "model_state_dict": model.state_dict(),
+                "source_tokenizer_path": "english2German/checkpoints/tokenizers/english_bpe.json",
+                "target_tokenizer_path": "english2German/checkpoints/tokenizers/german_bpe.json",
+                "training_loss": training_loss,
+                "validation_loss": validation_loss,
+                "bleu": bleu_result2.score
+            }
+            
+            best_bleu = bleu_result2.score
+            torch.save(checkpoint, checkpoint_path)
+            print(f"Saved new best checkpoint with bleu score: {bleu_result2.score}")
+            bleu_patience_count = 0
+        else:
+            bleu_patience_count += 1
 
         all_model_parameters['epochs'] = epoch
 

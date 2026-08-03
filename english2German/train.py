@@ -244,8 +244,7 @@ class TransformerTrainer:
         tgt_tokenizer,
         device: torch.device,
         all_model_paramters: dict,
-        valid_patience_count: int,
-        bleu_patience_count: int
+        valid_patience_count: int
     ) -> tuple[float, float]:
         """
         Train for one Epoch
@@ -314,66 +313,66 @@ class TransformerTrainer:
         validation_loss = self.evaluate_epoch(src_pad_id, tgt_pad_id, device)
 
 
-        predictions = []
-        references = []
-        gref = []
+        # predictions = []
+        # references = []
+        # gref = []
         
-        self.model.eval()
-        with torch.inference_mode():
+        # self.model.eval()
+        # with torch.inference_mode():
     
-            for batch in self.validation_loader:
-                # Parse Batch Data
-                bos_src_eos_batch = batch['bos_src_eos'].to(device, non_blocking=True)
-                bos_tgt_batch = batch['bos_tgt'].to(device, non_blocking=True)
-                tgt_eos_batch = batch['tgt_eos'].to(device, non_blocking=True)
-                bos_tgt_eos_batch = batch['bos_tgt_eos'].to(device, non_blocking=True)
-                english_text_batch = batch['en']
-                german_text_batch = batch['de']
+        #     for batch in self.validation_loader:
+        #         # Parse Batch Data
+        #         bos_src_eos_batch = batch['bos_src_eos'].to(device, non_blocking=True)
+        #         bos_tgt_batch = batch['bos_tgt'].to(device, non_blocking=True)
+        #         tgt_eos_batch = batch['tgt_eos'].to(device, non_blocking=True)
+        #         bos_tgt_eos_batch = batch['bos_tgt_eos'].to(device, non_blocking=True)
+        #         english_text_batch = batch['en']
+        #         german_text_batch = batch['de']
     
-                src_padding_mask = self.model.create_padding_mask(bos_src_eos_batch, src_pad_id)
-                tgt_padding_mask = self.model.create_padding_mask(bos_tgt_batch, tgt_pad_id)
-                tgt_causal_mask = self.model.create_causal_mask(bos_tgt_batch)
+        #         src_padding_mask = self.model.create_padding_mask(bos_src_eos_batch, src_pad_id)
+        #         tgt_padding_mask = self.model.create_padding_mask(bos_tgt_batch, tgt_pad_id)
+        #         tgt_causal_mask = self.model.create_causal_mask(bos_tgt_batch)
     
-                tgt_mask = tgt_causal_mask & tgt_padding_mask
+        #         tgt_mask = tgt_causal_mask & tgt_padding_mask
     
-                # output = model(bos_src_eos_batch, bos_tgt_batch, src_padding_mask, tgt_mask)
-                # loss = criterion(output.reshape(-1, output.size(-1)), tgt_eos_batch.reshape(-1))
-                # total_loss += loss.item()
-                # num_batches += 1
+        #         # output = model(bos_src_eos_batch, bos_tgt_batch, src_padding_mask, tgt_mask)
+        #         # loss = criterion(output.reshape(-1, output.size(-1)), tgt_eos_batch.reshape(-1))
+        #         # total_loss += loss.item()
+        #         # num_batches += 1
     
-                generated = self.greedy_decode_batch(
-                    source=bos_src_eos_batch,
-                    src_pad_id=src_pad_id,
-                    tgt_pad_id=tgt_pad_id,
-                    tgt_bos_id=tgt_eos_id,
-                    tgt_eos_id=tgt_eos_id,
-                    max_output_length=100
-                )
+        #         generated = self.greedy_decode_batch(
+        #             source=bos_src_eos_batch,
+        #             src_pad_id=src_pad_id,
+        #             tgt_pad_id=tgt_pad_id,
+        #             tgt_bos_id=tgt_eos_id,
+        #             tgt_eos_id=tgt_eos_id,
+        #             max_output_length=100
+        #         )
     
-                i = 0
-                for predicted_ids, reference_ids in zip(generated.tolist(), bos_tgt_eos_batch.tolist()):
+        #         i = 0
+        #         for predicted_ids, reference_ids in zip(generated.tolist(), bos_tgt_eos_batch.tolist()):
     
-                    predicted_text = src_tokenizer.decode(predicted_ids, skip_special_tokens=True)
-                    predicted_text = self.clean_decoded_text(predicted_text)
+        #             predicted_text = src_tokenizer.decode(predicted_ids, skip_special_tokens=True)
+        #             predicted_text = self.clean_decoded_text(predicted_text)
     
-                    reference_text = tgt_tokenizer.decode(reference_ids, skip_special_tokens=True)
-                    reference_text = self.clean_decoded_text(reference_text)
+        #             reference_text = tgt_tokenizer.decode(reference_ids, skip_special_tokens=True)
+        #             reference_text = self.clean_decoded_text(reference_text)
     
-                    predictions.append(predicted_text)
-                    references.append(reference_text)
-                    gref.append(german_text_batch[i])
-                    i += 1
+        #             predictions.append(predicted_text)
+        #             references.append(reference_text)
+        #             gref.append(german_text_batch[i])
+        #             i += 1
     
     
-                print("Generated IDs:", generated[-1].tolist())
-                print("Translation:", predictions[-1])
-                print(f"German Text: {gref[-1]}")
-                print()
+        #         print("Generated IDs:", generated[-1].tolist())
+        #         print("Translation:", predictions[-1])
+        #         print(f"German Text: {gref[-1]}")
+        #         print()
 
-        bleu_result = sacrebleu.corpus_bleu(predictions, [references])
-        bleu_result2 = sacrebleu.corpus_bleu(predictions, [gref])
-        print(f'\nbleu:  {bleu_result.score}')
-        print(f'bleu2:  {bleu_result2.score}\n')
+        # bleu_result = sacrebleu.corpus_bleu(predictions, [references])
+        # bleu_result2 = sacrebleu.corpus_bleu(predictions, [gref])
+        # print(f'\nbleu:  {bleu_result.score}')
+        # print(f'bleu2:  {bleu_result2.score}\n')
 
         elapsed = time.perf_counter() - start
         seconds_per_batch = elapsed / num_batches
@@ -420,29 +419,29 @@ class TransformerTrainer:
         else:
             valid_patience_count += 1
 
-        if bleu_result2.score < self.best_bleu_score:
+        # if bleu_result2.score > self.best_bleu_score:
 
-            checkpoint_path = Path("english2German/checkpoints/english2German_transformer_bestBleu.pt")
-            checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-            checkpoint = {
-                "epoch": epoch,
-                "step_count": self.step_count,
-                "warmup_steps": self.warmup_steps,
-                "model_state_dict": self.model.state_dict(),
-                "optimizer_state_dict": self.optimizer.state_dict(),
-                "source_tokenizer_path": "english2German/checkpoints/tokenizers/english_bpe.json",
-                "target_tokenizer_path": "english2German/checkpoints/tokenizers/german_bpe.json",
-                "training_loss": training_loss,
-                "validation_loss": validation_loss,
-                "bleu": bleu_result2.score
-            }
+        #     checkpoint_path = Path("english2German/checkpoints/english2German_transformer_bestBleu.pt")
+        #     checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        #     checkpoint = {
+        #         "epoch": epoch,
+        #         "step_count": self.step_count,
+        #         "warmup_steps": self.warmup_steps,
+        #         "model_state_dict": self.model.state_dict(),
+        #         "optimizer_state_dict": self.optimizer.state_dict(),
+        #         "source_tokenizer_path": "english2German/checkpoints/tokenizers/english_bpe.json",
+        #         "target_tokenizer_path": "english2German/checkpoints/tokenizers/german_bpe.json",
+        #         "training_loss": training_loss,
+        #         "validation_loss": validation_loss,
+        #         "bleu": bleu_result2.score
+        #     }
             
-            self.best_bleu_score = bleu_result2.score
-            torch.save(checkpoint, checkpoint_path)
-            print(f"Saved new best checkpoint with bleu score: {bleu_result2.score}")
-            bleu_patience_count = 0
-        else:
-            bleu_patience_count += 1
+        #     self.best_bleu_score = bleu_result2.score
+        #     torch.save(checkpoint, checkpoint_path)
+        #     print(f"Saved new best checkpoint with bleu score: {bleu_result2.score}")
+        #     bleu_patience_count = 0
+        # else:
+        #     bleu_patience_count += 1
 
 
-        return training_loss, validation_loss, valid_patience_count, bleu_patience_count
+        return training_loss, validation_loss, valid_patience_count
