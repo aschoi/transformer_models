@@ -182,21 +182,21 @@ def main():
 
 
     # ======== MODEL AND TRAINING PARAMETERS ======== #
-    d_model = 128
-    num_attn_heads = 4
-    num_encoder_layers = 2
-    num_decoder_layers = 2
-    d_ff = 512
-    dropout = 0.2
+    d_model = 512
+    num_attn_heads = 8
+    num_encoder_layers = 6
+    num_decoder_layers = 6
+    d_ff = 2048
+    dropout = 0.1
     activate = 'gelu'
     max_seq_len = 5000
     param_init = 'xavier_normal'
 
-    batch_size = 32
+    batch_size = 128
     shuffle = True
     cur_step_count = 0
-    warmup_steps = 800
-    epochs = 2
+    warmup_steps = 1000
+    epochs = 30
 
     train_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
     validation_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
