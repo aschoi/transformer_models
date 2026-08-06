@@ -45,6 +45,8 @@ def greedy_decode_batch(
         Generated target IDs shaped: [batch_size, generated_length]
     """
 
+    device = source.device
+
     if max_output_length < 2:
         raise ValueError("max_output_length must be at least 2 to allow BOS and one generated token.")
 
@@ -53,10 +55,10 @@ def greedy_decode_batch(
     batch_size = source.size(0)
 
     # Every target sequence begins with the target-language BOS token.
-    generated = torch.full(size=(batch_size, 1), fill_value=tgt_bos_id, dtype=torch.long)
+    generated = torch.full(size=(batch_size, 1), fill_value=tgt_bos_id, dtype=torch.long, device=device)
 
     # Tracks which sequences have already generated EOS.
-    finished = torch.zeros(batch_size, dtype=torch.bool)
+    finished = torch.zeros(batch_size, dtype=torch.bool, device=device)
 
     # The source does not change during decoding, so create this once.
     src_mask = model.create_padding_mask(source, src_pad_id)
@@ -285,14 +287,14 @@ def main():
     d_ff = 1024
     dropout = 0.1
     activate = 'gelu'
-    max_seq_len = 5000
+    max_seq_len = 7000
     param_init = 'xavier_normal'
 
-    batch_size = 64
+    batch_size = 32
     shuffle = True
     cur_step_count = 0
     warmup_steps = 3000
-    epochs = 50
+    epochs = 2
 
     train_loader = DataLoader(training_dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
     validation_loader = DataLoader(validation_dataset, batch_size=batch_size, shuffle=shuffle, collate_fn=collate_fn)
@@ -356,7 +358,7 @@ def main():
     start = time.perf_counter()
     valid_patience_count = 0
     bleu_patience_count = 0
-    best_bleu = float('inf')
+    best_bleu = 0
 
     print(f"\n-----Training for {epochs} epochs-----")
     for epoch in range(1, epochs+1):
@@ -417,16 +419,15 @@ def main():
                     i += 1
     
     
-                print("Generated IDs:", generated[-1].tolist())
-                print("Translation:", predictions[-1])
-                print(f"German Text: {gref[-1]}")
-                print()
+                # print("Generated IDs:", generated[-1].tolist())
+                # print("Translation:", predictions[-1])
+                # print(f"German Text: {gref[-1]}")
+                # print()
 
         bleu_result = sacrebleu.corpus_bleu(predictions, [references])
         print(f'\nbleu:  {bleu_result.score}')
-    
         bleu_result2 = sacrebleu.corpus_bleu(predictions, [gref])
-        print(f'\nbleu2:  {bleu_result2.score}')
+        print(f'bleu2:  {bleu_result2.score}\n')
 
 
         if bleu_result2.score > best_bleu:
